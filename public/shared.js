@@ -15,10 +15,10 @@
       members: ['Quang', 'Chi', 'Hoài Anh', 'Sơn', 'Khánh'].map((name, i) => ({ id: 'm' + (i + 1), name })),
       statuses: [
         { id: 'free', label: 'Rảnh', color: '#2e9e4f', free: true },
-        { id: 'busy', label: 'Không rảnh', color: '#d64545', free: false },
+        { id: 'busy', label: 'Bận rùi', color: '#d64545', free: false },
         { id: 'home', label: 'Về quê', color: '#3b74d6', free: false },
         { id: 'homefree', label: 'Quê (Rảnh)', color: '#0f9b9b', free: true },
-        { id: 'homebusy', label: 'Quê (Không rảnh)', color: '#c47a12', free: false },
+        { id: 'homebusy', label: 'Quê (Bận rùi)', color: '#c47a12', free: false },
       ],
       cells: {}, // "YYYY-MM-DD|slot|memberId" -> statusId
       memories: {}, // "YYYY-MM-DD" -> [{ id, author, text, images: [imageId], createdAt }]

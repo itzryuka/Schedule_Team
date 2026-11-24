@@ -204,6 +204,9 @@ async function main() {
   state = (await loadState()) || Shared.defaultState();
   const def = Shared.defaultState();
   for (const k of Object.keys(def)) if (state[k] === undefined) state[k] = def[k];
+  // Đổi tên cũ "Không rảnh" -> "Bận rùi" cho dữ liệu đã lưu từ trước
+  const RENAME = { 'Không rảnh': 'Bận rùi', 'Bận': 'Bận rùi', 'Quê (Không rảnh)': 'Quê (Bận rùi)', 'Quê (Bận)': 'Quê (Bận rùi)' };
+  for (const s of state.statuses) if (RENAME[s.label]) s.label = RENAME[s.label];
 
   const app = express();
   const server = http.createServer(app);

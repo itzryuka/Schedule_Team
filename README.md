@@ -3,7 +3,7 @@
 Web nhỏ để cả nhóm điền lịch rảnh theo tuần, không cần đăng nhập. Ai sửa thì máy khác thấy ngay (đồng bộ trực tiếp qua Socket.IO).
 
 - Lịch theo tuần: Sáng / Chiều / Tối, mỗi người một cột, cột cuối đếm số người rảnh.
-- 5 trạng thái mặc định: Rảnh, Không rảnh, Về quê, Quê (Rảnh), Quê (Không rảnh). Thêm, sửa tên, đổi màu hoặc xoá trong **⚙ Cài đặt**, hoặc bấm “＋ Trạng thái khác” ngay trong ô.
+- 5 trạng thái mặc định: Rảnh, Bận rùi, Về quê, Quê (Rảnh), Quê (Bận rùi). Thêm, sửa tên, đổi màu hoặc xoá trong **⚙ Cài đặt**, hoặc bấm “＋ Trạng thái khác” ngay trong ô.
 - Thêm / xoá / đổi tên / đổi thứ tự thành viên.
 - **Kỉ niệm** gắn vào từng ngày (chữ + tối đa 10 ảnh, ảnh tự thu nhỏ trước khi tải lên), có tab xem toàn bộ và banner “Ngày này năm trước”. Ảnh được lưu chung database với lịch (bảng `images`).
 - Phải chọn **Bạn là** trước khi sửa. Mọi thay đổi ghi vào **📜 Lịch sử thay đổi** (300 mục gần nhất).
