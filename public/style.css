@@ -317,3 +317,19 @@ dialog.lightbox::backdrop { background: rgba(10,12,20,.85); }
 @media (max-width: 640px) {
   .mascot .bubble { max-width: 140px; }
 }
+
+/* ================= Credit ================= */
+.credit {
+  margin: 28px 0 8px; padding-top: 14px; border-top: 1px solid var(--line);
+  display: flex; justify-content: center; align-items: center; gap: 8px 16px; flex-wrap: wrap;
+  color: var(--muted); font-size: 13px;
+}
+.credit b { color: var(--text); }
+.credit-links { display: flex; gap: 8px; }
+.credit-links a {
+  display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--card); color: var(--muted); text-decoration: none;
+  transition: color .15s, border-color .15s;
+}
+.credit-links a[title="Facebook"]:hover { color: #1877f2; border-color: #1877f2; }
+.credit-links a[title="GitHub"]:hover { color: #1d2433; border-color: #1d2433; }
