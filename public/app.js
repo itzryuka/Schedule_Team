@@ -136,12 +136,13 @@
   socket.on('disconnect', () => setBadge(false));
   socket.on('state', (s) => {
     state = s;
-    state.log = state.log || [];
     render();
+    refreshUnread();
   });
   socket.on('op', (op) => {
     if (!state) return;
     apply(state, op);
+    if (op.log) onNewLog(op.log);
     render();
   });
   socket.on('presence', (n) => {
@@ -198,7 +199,6 @@
     if (popCtx) renderPopover();
     if (memDate && $('#memDialog').open) renderMemList();
     if ($('#setDialog').open) renderSettings();
-    if ($('#logDialog').open) renderLog();
     if ($('#whoDialog').open) renderWho();
   }
 
@@ -734,53 +734,143 @@
   });
 
   // ---------- Lịch sử thay đổi ----------
-  function renderLogDot() {
-    const n = state.log.filter((l) => l.at > lastSeenLog).length;
-    const dot = $('#logDot');
-    dot.hidden = n === 0 || $('#logDialog').open;
-    dot.textContent = n > 99 ? '99+' : n;
+  // Lịch sử được lưu đầy đủ trên server; ở đây chỉ tải từng ngày một khi xem.
+  let unread = 0;
+  let logDay = startOfDay(new Date());
+  let logData = null; // { items, prevAt, nextAt } của ngày đang xem
+  let lbSeenAtOpen = 0;
+  let logReq = 0;
+
+  function startOfDay(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   }
-  function renderLog() {
-    const list = state.log.slice().reverse();
-    if (!list.length) {
-      $('#logList').innerHTML = '<div class="mem-empty">Chưa có thay đổi nào.</div>';
+  const isTodayDay = (d) => ymd(d) === ymd(new Date());
+
+  async function refreshUnread() {
+    try {
+      const r = await fetch(`/api/log/count?since=${lastSeenLog}`);
+      unread = (await r.json()).count || 0;
+    } catch {
+      unread = 0;
+    }
+    renderLogDot();
+  }
+
+  function renderLogDot() {
+    const dot = $('#logDot');
+    dot.hidden = unread === 0 || $('#logDialog').open;
+    dot.textContent = unread > 99 ? '99+' : unread;
+  }
+
+  function onNewLog(l) {
+    if ($('#logDialog').open) {
+      const from = logDay.getTime();
+      const to = addDays(logDay, 1).getTime();
+      if (logData && l.at >= from && l.at < to && !logData.items.some((x) => x.id === l.id)) {
+        logData.items.unshift(l);
+        renderLog();
+      } else if (logData && l.at >= to) {
+        logData.nextAt = logData.nextAt || l.at;
+        renderLog();
+      }
+      markLogSeen(l.at);
+    } else if (!me() || l.by !== me().name) {
+      unread++;
+      renderLogDot();
+    }
+  }
+
+  async function loadLog() {
+    const req = ++logReq;
+    const from = logDay.getTime();
+    const to = addDays(logDay, 1).getTime();
+    renderLogNav();
+    $('#logList').innerHTML = '<div class="mem-empty">Đang tải…</div>';
+    try {
+      const r = await fetch(`/api/log?from=${from}&to=${to}`);
+      if (!r.ok) throw new Error();
+      const data = await r.json();
+      if (req !== logReq) return; // đã chuyển sang ngày khác
+      logData = data;
+    } catch {
+      if (req !== logReq) return;
+      logData = null;
+      $('#logList').innerHTML = '<div class="mem-empty">Không tải được lịch sử 😢</div>';
       return;
     }
-    const today = ymd(new Date());
-    const yesterday = ymd(addDays(new Date(), -1));
-    let html = '';
-    let lastDay = '';
-    for (const l of list) {
+    renderLog();
+  }
+
+  function renderLogNav() {
+    const d = logDay;
+    const today = startOfDay(new Date());
+    const yest = addDays(today, -1);
+    const label = isTodayDay(d) ? 'Hôm nay' : ymd(d) === ymd(yest) ? 'Hôm qua' : dayName(d);
+    $('#logDayLabel').textContent = `${label}, ${dm(d)}/${d.getFullYear()}`;
+    $('#logDate').value = ymd(d);
+    $('#logDate').max = ymd(today);
+    $('#logNext').disabled = isTodayDay(d);
+    $('#logToday').hidden = isTodayDay(d);
+  }
+
+  function renderLog() {
+    renderLogNav();
+    if (!logData) return;
+    const { items, prevAt, nextAt } = logData;
+    let html = `<div class="log-count">${items.length ? `${items.length} thay đổi` : ''}</div>`;
+    if (!items.length) {
+      html += '<div class="mem-empty">Không có thay đổi nào trong ngày này.</div>';
+    }
+    for (const l of items) {
       const t = new Date(l.at);
-      const day = ymd(t);
-      if (day !== lastDay) {
-        lastDay = day;
-        const label = day === today ? 'Hôm nay' : day === yesterday ? 'Hôm qua' : `${dayName(t)}, ${dm(t)}/${t.getFullYear()}`;
-        html += `<div class="log-day">${label}</div>`;
-      }
       html += `<div class="log-item ${l.at > lbSeenAtOpen ? 'new' : ''}">
         <span class="log-time">${pad(t.getHours())}:${pad(t.getMinutes())}</span>
         <span><b>${esc(l.by)}</b> ${esc(l.text)}</span>
       </div>`;
     }
+    const jumps = [];
+    if (prevAt) jumps.push(`<button class="btn" data-logjump="${prevAt}">‹ Ngày có thay đổi trước (${dm(new Date(prevAt))})</button>`);
+    if (nextAt) jumps.push(`<button class="btn" data-logjump="${nextAt}">Ngày có thay đổi sau (${dm(new Date(nextAt))}) ›</button>`);
+    if (jumps.length) html += `<div class="log-jumps">${jumps.join('')}</div>`;
     $('#logList').innerHTML = html;
   }
-  let lbSeenAtOpen = 0;
+
+  function gotoLogDay(d) {
+    const today = startOfDay(new Date());
+    logDay = startOfDay(d) > today ? today : startOfDay(d);
+    loadLog();
+  }
+
   $('#logBtn').onclick = () => {
     if (!state) return;
     lbSeenAtOpen = lastSeenLog;
-    renderLog();
+    logDay = startOfDay(new Date());
     $('#logDialog').showModal();
-    markLogSeen();
+    loadLog();
+    markLogSeen(Date.now());
   };
-  function markLogSeen() {
-    const last = state.log.length ? state.log[state.log.length - 1].at : 0;
-    lastSeenLog = Math.max(lastSeenLog, last);
+  $('#logPrev').onclick = () => gotoLogDay(addDays(logDay, -1));
+  $('#logNext').onclick = () => gotoLogDay(addDays(logDay, 1));
+  $('#logToday').onclick = () => gotoLogDay(new Date());
+  $('#logDate').addEventListener('change', (e) => e.target.value && gotoLogDay(parseYmd(e.target.value)));
+  $('#logList').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-logjump]');
+    if (b) gotoLogDay(new Date(Number(b.dataset.logjump)));
+  });
+  $('#logDialog').addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'ArrowLeft') $('#logPrev').click();
+    if (e.key === 'ArrowRight' && !$('#logNext').disabled) $('#logNext').click();
+  });
+
+  function markLogSeen(at) {
+    lastSeenLog = Math.max(lastSeenLog, at);
     store.set('lastSeenLog', String(lastSeenLog));
+    unread = 0;
     renderLogDot();
   }
   $('#logDialog').addEventListener('close', () => {
-    markLogSeen();
+    markLogSeen(Date.now());
   });
   $('#logDialog').addEventListener('click', (e) => {
     if (e.target.id === 'logDialog') $('#logDialog').close();

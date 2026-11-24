@@ -333,3 +333,17 @@ dialog.lightbox::backdrop { background: rgba(10,12,20,.85); }
 }
 .credit-links a[title="Facebook"]:hover { color: #1877f2; border-color: #1877f2; }
 .credit-links a[title="GitHub"]:hover { color: #1d2433; border-color: #1d2433; }
+
+/* ================= Lịch sử: chuyển ngày ================= */
+.log-nav {
+  display: flex; align-items: center; gap: 8px; padding: 8px; margin-bottom: 6px;
+  background: #f4f6fb; border-radius: 12px;
+}
+.log-nav > .btn { font-size: 20px; line-height: 1; padding: 6px 12px; }
+.log-nav-mid { flex: 1; text-align: center; display: grid; gap: 4px; justify-items: center; }
+.log-nav-tools { display: flex; align-items: center; gap: 6px; }
+#logDate { font: inherit; font-size: 12px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); }
+.log-count { font-size: 12px; color: var(--muted); margin: 2px 0 4px; }
+.log-count:empty { display: none; }
+.log-jumps { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 12px; }
+.log-jumps .btn { font-size: 12px; }

@@ -96,6 +96,90 @@ async function deleteImages(ids) {
   }
 }
 
+// ---------------- Lịch sử thay đổi (lưu riêng, giữ lâu dài) ----------------
+const LOG_FILE = path.join(path.dirname(DATA_FILE), 'log.json');
+const LOG_FILE_MAX = 50000; // giới hạn khi lưu bằng file
+let logMem = [];
+let logTimer = null;
+
+async function initLog() {
+  if (pool) {
+    await pool.query(
+      'CREATE TABLE IF NOT EXISTS logs (id TEXT PRIMARY KEY, at BIGINT NOT NULL, by_name TEXT NOT NULL, text TEXT NOT NULL)'
+    );
+    await pool.query('CREATE INDEX IF NOT EXISTS logs_at_idx ON logs (at)');
+  } else {
+    try {
+      logMem = JSON.parse(fs.readFileSync(LOG_FILE, 'utf8'));
+    } catch {
+      logMem = [];
+    }
+  }
+}
+
+function saveLogFile() {
+  clearTimeout(logTimer);
+  logTimer = null;
+  try {
+    fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
+    fs.writeFileSync(LOG_FILE + '.tmp', JSON.stringify(logMem));
+    fs.renameSync(LOG_FILE + '.tmp', LOG_FILE);
+  } catch (e) {
+    console.error('Lỗi lưu lịch sử:', e.message);
+  }
+}
+
+async function addLogs(entries) {
+  if (!entries.length) return;
+  if (pool) {
+    for (const l of entries) {
+      await pool.query('INSERT INTO logs (id, at, by_name, text) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING', [
+        l.id,
+        l.at,
+        l.by,
+        l.text,
+      ]);
+    }
+  } else {
+    logMem.push(...entries);
+    if (logMem.length > LOG_FILE_MAX) logMem.splice(0, logMem.length - LOG_FILE_MAX);
+    clearTimeout(logTimer);
+    logTimer = setTimeout(saveLogFile, 500);
+  }
+}
+
+// Lấy lịch sử trong khoảng [from, to), mới nhất trước, kèm mốc ngày có thay đổi gần nhất trước/sau
+async function queryLog(from, to) {
+  if (pool) {
+    const [items, prev, next] = await Promise.all([
+      pool.query('SELECT id, at, by_name AS by, text FROM logs WHERE at >= $1 AND at < $2 ORDER BY at DESC LIMIT 2000', [from, to]),
+      pool.query('SELECT max(at) AS at FROM logs WHERE at < $1', [from]),
+      pool.query('SELECT min(at) AS at FROM logs WHERE at >= $1', [to]),
+    ]);
+    return {
+      items: items.rows.map((r) => ({ ...r, at: Number(r.at) })),
+      prevAt: prev.rows[0].at ? Number(prev.rows[0].at) : null,
+      nextAt: next.rows[0].at ? Number(next.rows[0].at) : null,
+    };
+  }
+  const items = logMem.filter((l) => l.at >= from && l.at < to).reverse();
+  let prevAt = null;
+  let nextAt = null;
+  for (const l of logMem) {
+    if (l.at < from && (prevAt === null || l.at > prevAt)) prevAt = l.at;
+    if (l.at >= to && (nextAt === null || l.at < nextAt)) nextAt = l.at;
+  }
+  return { items, prevAt, nextAt };
+}
+
+async function countLogSince(since) {
+  if (pool) {
+    const r = await pool.query('SELECT count(*)::int AS n FROM logs WHERE at > $1', [since]);
+    return r.rows[0].n;
+  }
+  return logMem.filter((l) => l.at > since).length;
+}
+
 let state;
 let saveTimer = null;
 let saving = Promise.resolve();
@@ -208,6 +292,14 @@ async function main() {
   const RENAME = { 'Không rảnh': 'Bận rùi', 'Bận': 'Bận rùi', 'Quê (Không rảnh)': 'Quê (Bận rùi)', 'Quê (Bận)': 'Quê (Bận rùi)' };
   for (const s of state.statuses) if (RENAME[s.label]) s.label = RENAME[s.label];
 
+  // Lịch sử trước đây nằm trong state (tối đa 300 mục) -> chuyển sang nơi lưu riêng
+  await initLog();
+  if (Array.isArray(state.log)) {
+    await addLogs(state.log);
+    delete state.log;
+    scheduleSave();
+  }
+
   const app = express();
   const server = http.createServer(app);
   const io = new Server(server, { maxHttpBufferSize: 1e6 });
@@ -240,6 +332,29 @@ async function main() {
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.send(img.data);
   });
+  // Lịch sử theo khoảng thời gian (trình duyệt tự tính đầu/cuối ngày theo giờ máy)
+  app.get('/api/log', async (req, res) => {
+    const from = Number(req.query.from);
+    const to = Number(req.query.to);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to - from > 8 * 86400000) {
+      return res.status(400).json({ error: 'Khoảng thời gian không hợp lệ' });
+    }
+    try {
+      res.json(await queryLog(from, to));
+    } catch (e) {
+      console.error('Lỗi đọc lịch sử:', e.message);
+      res.status(500).json({ error: 'Không đọc được lịch sử' });
+    }
+  });
+  app.get('/api/log/count', async (req, res) => {
+    const since = Number(req.query.since) || 0;
+    try {
+      res.json({ count: await countLogSince(since) });
+    } catch {
+      res.json({ count: 0 });
+    }
+  });
+
   app.get('/api/export', (_req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename="lich-nhom-backup.json"');
     res.json(state);
@@ -266,6 +381,7 @@ async function main() {
       }
       Shared.apply(state, op);
       deleteImages(orphanImages);
+      addLogs([op.log]).catch((e) => console.error('Lỗi ghi lịch sử:', e.message));
       io.emit('op', op);
       scheduleSave();
     });
@@ -275,6 +391,7 @@ async function main() {
 
   const shutdown = async () => {
     await flushSave();
+    if (!pool && logTimer) saveLogFile();
     process.exit(0);
   };
   process.on('SIGTERM', shutdown);

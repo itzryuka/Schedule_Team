@@ -129,6 +129,17 @@
       <h2>📜 Lịch sử thay đổi</h2>
       <button class="x" aria-label="Đóng">✕</button>
     </form>
+    <div class="log-nav">
+      <button id="logPrev" class="btn" title="Ngày trước">‹</button>
+      <div class="log-nav-mid">
+        <b id="logDayLabel"></b>
+        <span class="log-nav-tools">
+          <input type="date" id="logDate" aria-label="Chọn ngày" />
+          <button id="logToday" class="link">Về hôm nay</button>
+        </span>
+      </div>
+      <button id="logNext" class="btn" title="Ngày sau">›</button>
+    </div>
     <div id="logList" class="log-list"></div>
   </dialog>
 

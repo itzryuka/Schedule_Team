@@ -6,7 +6,7 @@ Web nhỏ để cả nhóm điền lịch rảnh theo tuần, không cần đăn
 - 5 trạng thái mặc định: Rảnh, Bận rùi, Về quê, Quê (Rảnh), Quê (Bận rùi). Thêm, sửa tên, đổi màu hoặc xoá trong **⚙ Cài đặt**, hoặc bấm “＋ Trạng thái khác” ngay trong ô.
 - Thêm / xoá / đổi tên / đổi thứ tự thành viên.
 - **Kỉ niệm** gắn vào từng ngày (chữ + tối đa 10 ảnh, ảnh tự thu nhỏ trước khi tải lên), có tab xem toàn bộ và banner “Ngày này năm trước”. Ảnh được lưu chung database với lịch (bảng `images`).
-- Phải chọn **Bạn là** trước khi sửa. Mọi thay đổi ghi vào **📜 Lịch sử thay đổi** (300 mục gần nhất).
+- Phải chọn **Bạn là** trước khi sửa. Mọi thay đổi ghi vào **📜 Lịch sử thay đổi** (lưu đầy đủ, xem theo từng ngày, có nút chuyển ngày).
 - Mọi thao tác xoá đều có popup hỏi lại.
 - Nút **Chốt kèo & Copy** copy tóm tắt khung giờ đẹp nhất để dán vào nhóm chat.
 

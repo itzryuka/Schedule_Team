@@ -22,11 +22,9 @@
       ],
       cells: {}, // "YYYY-MM-DD|slot|memberId" -> statusId
       memories: {}, // "YYYY-MM-DD" -> [{ id, author, text, images: [imageId], createdAt }]
-      log: [], // [{ id, at, by, text }] – mới nhất ở cuối
+      // Lịch sử thay đổi được server lưu riêng (bảng logs / data/log.json), không nằm ở đây
     };
   }
-
-  const LOG_MAX = 300;
 
   function cellKey(date, slot, memberId) {
     return date + '|' + slot + '|' + memberId;
@@ -85,13 +83,6 @@
 
   // Áp dụng 1 thao tác vào state. Mọi thao tác đều idempotent (áp dụng 2 lần vẫn ra cùng kết quả).
   function apply(state, op) {
-    if (op.log) {
-      state.log = state.log || [];
-      if (!state.log.some((l) => l.id === op.log.id)) {
-        state.log.push(op.log);
-        if (state.log.length > LOG_MAX) state.log.splice(0, state.log.length - LOG_MAX);
-      }
-    }
     switch (op.type) {
       case 'setCells':
         for (const it of op.items) {
