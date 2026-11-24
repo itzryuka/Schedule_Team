@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lịch Hẹn Nhóm</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="title-row">
+        <div class="title-left">
+          <h1>Lịch Hẹn Nhóm <span id="memberCount"></span></h1>
+          <span id="syncBadge" class="badge off">Đang kết nối…</span>
+          <span id="presence" class="presence"></span>
+        </div>
+        <button id="logBtn" class="btn log-btn">📜 Lịch sử thay đổi <span id="logDot" class="dot" hidden></span></button>
+      </div>
+      <p class="hint">Bấm vào 1 ô để chọn trạng thái • Bấm tên ở đầu cột để đổi tên • Bấm <b>＋ Kỉ niệm</b> ở mỗi ngày để ghi lại kỉ niệm hôm đó</p>
+    </header>
+
+    <div class="toolbar">
+      <div class="tabs">
+        <button class="tab active" data-view="week">Lịch theo tuần</button>
+        <button class="tab" data-view="memories">Kỉ niệm</button>
+      </div>
+      <div class="toolbar-right">
+        <div class="me-wrap">
+          <div id="mascot" class="mascot" hidden>
+            <div class="bubble" id="mascotBubble">Chọn tên trước đã nha!</div>
+            <img src="mascot.png" alt="" width="65" height="80" />
+          </div>
+          <button id="meBtn" class="btn me-btn">Bạn là: <b id="meName">chưa chọn</b> ▾</button>
+        </div>
+        <button id="addMemberBtn" class="btn">＋ Thêm người</button>
+        <button id="settingsBtn" class="btn">⚙ Cài đặt</button>
+        <button id="copyBtn" class="btn primary">📋 Chốt kèo &amp; Copy</button>
+      </div>
+    </div>
+
+    <div id="onThisDay"></div>
+
+    <section id="weekView">
+      <div class="week-nav">
+        <button id="prevWeek" class="btn">← Trước</button>
+        <div class="week-label">
+          <span id="weekLabel"></span>
+          <button id="todayBtn" class="link">Hôm nay</button>
+        </div>
+        <button id="nextWeek" class="btn">Sau →</button>
+      </div>
+      <div id="bestSlots" class="best"></div>
+      <div class="legend" id="legend"></div>
+      <div class="grid-scroll"><div id="grid"><div class="loading">Đang tải…</div></div></div>
+    </section>
+
+    <section id="memoriesView" hidden>
+      <div id="memoriesAll"></div>
+    </section>
+  </div>
+
+  <!-- Popup chọn trạng thái -->
+  <div id="popover" class="popover" hidden></div>
+
+  <!-- Chọn "Bạn là ai" -->
+  <dialog id="whoDialog">
+    <form method="dialog" class="dlg-head">
+      <h2>Bạn là ai? 👀</h2>
+      <button class="x" aria-label="Đóng">✕</button>
+    </form>
+    <p class="hint">Chọn tên của bạn. Mọi thay đổi sẽ được ghi lại kèm tên này.</p>
+    <div id="whoList" class="who-list"></div>
+    <div class="who-add">
+      <p class="hint">Chưa có tên bạn? Ghi tên rồi thêm luôn:</p>
+      <div class="set-add">
+        <input id="whoNewName" placeholder="Tên của bạn" maxlength="40" />
+        <button id="whoNewBtn" class="btn primary">Thêm &amp; chọn</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Hộp kỉ niệm theo ngày -->
+  <dialog id="memDialog" class="wide">
+    <form method="dialog" class="dlg-head">
+      <h2 id="memTitle"></h2>
+      <button class="x" aria-label="Đóng">✕</button>
+    </form>
+    <div id="memList" class="mem-list"></div>
+    <div class="mem-form">
+      <textarea id="memText" rows="3" maxlength="2000" placeholder="Hôm nay có gì đáng nhớ? 🥳"></textarea>
+      <div id="memPreview" class="thumbs"></div>
+      <div class="mem-form-row">
+        <label class="btn file-btn">📷 Thêm ảnh
+          <input type="file" id="memFiles" accept="image/*" multiple hidden />
+        </label>
+        <span class="mem-author">Người viết: <b id="memAuthor"></b></span>
+        <button id="memSave" class="btn primary">Lưu kỉ niệm</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Xem ảnh lớn -->
+  <dialog id="lightbox" class="lightbox">
+    <form method="dialog"><button class="x lb-x" aria-label="Đóng">✕</button></form>
+    <img id="lbImg" alt="" />
+    <button class="lb-nav lb-prev" id="lbPrev" aria-label="Ảnh trước">‹</button>
+    <button class="lb-nav lb-next" id="lbNext" aria-label="Ảnh sau">›</button>
+  </dialog>
+
+  <!-- Lịch sử thay đổi -->
+  <dialog id="logDialog" class="drawer">
+    <form method="dialog" class="dlg-head">
+      <h2>📜 Lịch sử thay đổi</h2>
+      <button class="x" aria-label="Đóng">✕</button>
+    </form>
+    <div id="logList" class="log-list"></div>
+  </dialog>
+
+  <!-- Cài đặt -->
+  <dialog id="setDialog">
+    <form method="dialog" class="dlg-head">
+      <h2>Cài đặt</h2>
+      <button class="x" aria-label="Đóng">✕</button>
+    </form>
+    <h3>Thành viên</h3>
+    <div id="setMembers" class="set-list"></div>
+    <div class="set-add">
+      <input id="newMemberName" placeholder="Tên người mới" maxlength="40" />
+      <button id="newMemberBtn" class="btn">Thêm</button>
+    </div>
+    <h3>Trạng thái</h3>
+    <p class="hint">Đánh dấu “Tính là rảnh” để trạng thái đó được cộng vào cột Rảnh.</p>
+    <div id="setStatuses" class="set-list"></div>
+    <div class="set-add">
+      <input type="color" id="newStatusColor" value="#8e44ad" />
+      <input id="newStatusLabel" placeholder="Tên trạng thái mới" maxlength="30" />
+      <label class="chk"><input type="checkbox" id="newStatusFree" /> Tính là rảnh</label>
+      <button id="newStatusBtn" class="btn">Thêm</button>
+    </div>
+    <p class="hint backup"><a href="/api/export">⬇ Tải bản sao lưu dữ liệu (JSON)</a></p>
+  </dialog>
+
+  <!-- Thêm trạng thái nhanh từ popup -->
+  <dialog id="statusDialog">
+    <form method="dialog" class="dlg-head">
+      <h2>Trạng thái mới</h2>
+      <button class="x" value="cancel" aria-label="Đóng">✕</button>
+    </form>
+    <div class="set-add">
+      <input type="color" id="qsColor" value="#8e44ad" />
+      <input id="qsLabel" placeholder="Vd: Đi làm, Ốm, Đi chơi xa…" maxlength="30" />
+    </div>
+    <label class="chk qs-free"><input type="checkbox" id="qsFree" /> Tính là rảnh</label>
+    <div class="dlg-actions">
+      <button class="btn" id="qsCancel">Huỷ</button>
+      <button class="btn primary" id="qsOk">Thêm &amp; chọn</button>
+    </div>
+  </dialog>
+
+  <!-- Hộp hỏi lại / nhập chữ dùng chung -->
+  <dialog id="askDialog" class="ask">
+    <div class="ask-icon" id="askIcon"></div>
+    <h2 id="askTitle"></h2>
+    <p id="askMsg" class="ask-msg"></p>
+    <input id="askInput" maxlength="40" hidden />
+    <div class="dlg-actions">
+      <button class="btn" id="askCancel">Huỷ</button>
+      <button class="btn primary" id="askOk">OK</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="shared.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

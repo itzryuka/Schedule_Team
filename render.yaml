@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: lich-nhom
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      # Dán chuỗi kết nối Postgres (Neon / Supabase / Render Postgres) vào đây trên dashboard
+      # để dữ liệu không bị mất khi Render khởi động lại.
+      - key: DATABASE_URL
+        sync: false
