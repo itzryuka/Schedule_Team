@@ -173,16 +173,50 @@
     return { n, names };
   }
 
+  // Khung giờ đẹp: phải có ít nhất 4 người rảnh (hoặc cả nhóm nếu nhóm ít hơn 4 người)
+  // và không tính những ngày đã qua.
+  const MIN_FREE = 4;
+  const minFree = () => Math.max(1, Math.min(MIN_FREE, state.members.length));
+
   function bestSlots(limit = 3) {
     const list = [];
+    const today = ymd(new Date());
+    const need = minFree();
     weekDays().forEach((d, di) => {
+      if (ymd(d) < today) return; // ngày đã qua
       SLOTS.forEach((sl, si) => {
         const { n, names } = freeCount(ymd(d), sl.id);
-        if (n > 0) list.push({ d, sl, n, names, order: di * 3 + si });
+        if (n >= need) list.push({ d, sl, n, names, order: di * 3 + si });
       });
     });
     list.sort((a, b) => b.n - a.n || a.order - b.order);
     return list.slice(0, limit);
+  }
+
+  function renderBest(best) {
+    const total = state.members.length;
+    const need = minFree();
+    const weekOver = ymd(weekDays()[6]) < ymd(new Date());
+    const head = `<div class="best-head"><span>⭐ Khung giờ đẹp nhất tuần</span><span class="best-sub">từ ${need} người rảnh trở lên</span></div>`;
+    if (!best.length) {
+      const msg = weekOver
+        ? 'Tuần này qua rồi nên không gợi ý nữa nha.'
+        : `Chưa có buổi nào đủ ${need} người rảnh. Mọi người điền thêm lịch nhé!`;
+      return `<div class="best empty">${head}<div class="best-empty">${msg}</div></div>`;
+    }
+    const medals = ['🥇', '🥈', '🥉'];
+    return `<div class="best">${head}<div class="best-list">${best
+      .map(
+        (x, i) => `<div class="best-card ${i === 0 ? 'top' : ''}">
+          <div class="best-row">
+            <span class="best-medal">${medals[i] || '•'}</span>
+            <span class="best-when"><span class="best-slot">${x.sl.label}</span> ${dayName(x.d)} <span class="best-date">${dm(x.d)}</span></span>
+            <span class="best-count"><b>${x.n}</b>/${total}</span>
+          </div>
+          <div class="best-names">${x.names.map((n) => `<span>${esc(n)}</span>`).join('')}</div>
+        </div>`
+      )
+      .join('')}</div></div>`;
   }
 
   const slotText = (x) => `${x.sl.label} ${dayName(x.d)} (${dm(x.d)})`;
@@ -225,10 +259,8 @@
     $('#todayBtn').textContent = isThisWeek ? '(Hôm nay)' : 'Về tuần này';
 
     const best = bestSlots();
-    $('#bestSlots').innerHTML = best.length
-      ? '⭐ Khung giờ đẹp nhất tuần: ' +
-        best.map((x) => `<b>${slotText(x)}</b> (${x.n}/${state.members.length})`).join(' • ')
-      : '⭐ Chưa có ai báo rảnh tuần này. Bấm vào ô để điền nhé!';
+    $('#bestSlots').innerHTML = renderBest(best);
+    const bestKeys = new Set(best.map((x) => ymd(x.d) + '|' + x.sl.id));
 
     $('#legend').innerHTML = state.statuses
       .map((s) => `<span class="pill" style="--c:${s.color}">${esc(s.label)}${s.free ? ' ✓' : ''}</span>`)
@@ -263,7 +295,10 @@
         const { n } = freeCount(ds, sl.id);
         const ratio = total ? n / total : 0;
         const color = n === 0 ? '#a0a7b4' : ratio >= 0.99 ? '#1e7a3a' : ratio >= 0.5 ? '#2e9e4f' : '#c47a12';
-        html += `<td class="count" style="color:${color}">${n}/${total}</td></tr>`;
+        const isBest = bestKeys.has(ds + '|' + sl.id);
+        html += `<td class="count ${isBest ? 'is-best' : ''}" style="color:${color}" ${isBest ? 'title="Khung giờ đẹp"' : ''}>${
+          isBest ? '<span class="star">⭐</span>' : ''
+        }${n}/${total}</td></tr>`;
       });
     }
     html += '</tbody></table>';
@@ -974,7 +1009,7 @@
     const total = state.members.length;
     const best = bestSlots(3);
     let text = `📅 Lịch nhóm tuần ${dm(days[0])} - ${dm(days[6])}/${days[6].getFullYear()}\n`;
-    if (!best.length) text += 'Chưa ai báo rảnh tuần này 😢\n';
+    if (!best.length) text += `Chưa có buổi nào đủ ${minFree()} người rảnh 😢\n`;
     best.forEach((x, i) => {
       text += `${i === 0 ? '⭐' : '•'} ${slotText(x)}: ${x.n}/${total} rảnh (${x.names.join(', ')})\n`;
     });
